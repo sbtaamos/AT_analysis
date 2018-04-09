@@ -196,36 +196,55 @@ print "Folders OK."
 # FUNCTIONS
 ###############################################################################
 
-def calculate_BilayerPenetration(bilayer_COM,protein_CAs):
-	for atom in protein_CAs:
-
+def calculate_BilayerPenetration():
+	OUTPUT_BP = open("(args.output_folder + "/bilayer_interactions/penetration/bilayer_penetration.dat", 'w')")
+	CA_res = u.select_atoms("protein and name CA")
+	bilayer = u.select_atoms("resname POPC")    
+	for residue in CA_res:
+    	penetration_list = []
+    	for frame in u.trajectory:
+        	bilayer_z = bilayer.center_of_mass()[2]
+        	CA_res_z = residue.position[2]
+        	penetration = (CA_res_z - bilayer_z)
+        	penetration_list.append(penetration)
+    	np_penetration_list = np.asarray(penetration_list)
+    	resid = np.asarray(residue.resid)
+    	avg_penetration = np.mean(np_penetration_list)
+    	std_penetration = np.std(np_penetration_list)
+    	DAT = np.column_stack((resid, avg_penetration, std_penetration))
+    	np.savetxt(OUTPUT_BP, (DAT), delimiter="   ", fmt="%s")
+    OUTPUT_BP.close()
 
 
 # load files in MDTraj
 
 print "Loading files (this may take a while)..."
 
-traj_mdt = mdt.load(args.xtcfilename, top=args.grofilename)
-print "Simulation length (ps):"
-print traj_mdt.time[-1]
-print "Done."
+#traj_mdt = mdt.load(args.xtcfilename, top=args.grofilename)
+#print "Simulation length (ps):"
+#print traj_mdt.time[-1]
+#print "Done."
 
 
 # Select proteins and lipids
-mdt_topology = traj_mdt.topology
+#mdt_topology = traj_mdt.topology
 
-protein_mdt = topology.select("protein")
-CA_protein_mdt = topology.select("protein and name CA")
-residue_list_mdt = list(enumerate(CA_protein_mdt,1))
-lipids_set = ["POPC", "POPS", "PI4P", "PIP2"]
+#protein_mdt = topology.select("protein")
+#CA_protein_mdt = topology.select("protein and name CA")
+#residue_list_mdt = list(enumerate(CA_protein_mdt,1))
+#lipids_set = ["POPC", "POPS", "PI4P", "PIP2"]
 
-bilayer = topology.select
+#bilayer = topology.select
+
+# load files in MDAnalysis
+
+
 
 # Bilayer interactions
 
 print "Analysing bilayer interactions..."
 
-
+calculate_BilayerPenetration()
 
 
 print "Done."
