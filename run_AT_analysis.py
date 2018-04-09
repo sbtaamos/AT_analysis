@@ -196,10 +196,23 @@ print "Folders OK."
 # FUNCTIONS
 ###############################################################################
 
+def load_MDA_universe():
+	global U
+	print "\nLoading trajectory..."
+	U = Universe(args.grofilename, args.xtcfilename)
+	### might need some more globals here
+	test_prot = U.select_atoms("protein")
+	if test_prot.numberOfAtoms() == 0:
+		print "Error: no protein found in the system."
+		sys.exit(1)
+	else:
+		print "MDA Trajectory loaded successfully."
+
+
 def calculate_BilayerPenetration():
 	OUTPUT_BP = open("(args.output_folder + "/bilayer_interactions/penetration/bilayer_penetration.dat", 'w')")
-	CA_res = u.select_atoms("protein and name CA")
-	bilayer = u.select_atoms("resname POPC")    
+	CA_res = U.select_atoms("protein and name CA")
+	bilayer = U.select_atoms("resname POPC")    
 	for residue in CA_res:
     	penetration_list = []
     	for frame in u.trajectory:
@@ -215,6 +228,19 @@ def calculate_BilayerPenetration():
     	np.savetxt(OUTPUT_BP, (DAT), delimiter="   ", fmt="%s")
     OUTPUT_BP.close()
 
+def calculate_LipidContacts():
+	OUTPUT_contacts = open("(args.output_folder + "/bilayer_interactions/contacts/contacts_per_frame.dat", 'w')")
+	for residue in CA_res:
+    	lipid_list = []
+		resi = residue.resid
+		for frame in u.trajectory:
+			lipids = u.select_atoms("resname PI4P and around 4 resid %i"%(resi))
+			lipidNumber = lipids.n_residues
+			lipid_list.append(lipidNumber)
+		np_lipid_list = np.asarray(lipid_list)
+		DAT = np.column_stack(np_lipid_list)
+		np.savetxt(OUTPUT_contacts, (DAT), delimiter=" ", fmt="%s")
+    OUTPUT_contacts.close()
 
 # load files in MDTraj
 
@@ -238,7 +264,7 @@ print "Loading files (this may take a while)..."
 
 # load files in MDAnalysis
 
-
+load_MDA_universe()
 
 # Bilayer interactions
 
