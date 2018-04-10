@@ -48,7 +48,7 @@ Other options
 #data options
 parser.add_argument('-f', nargs=1, dest='grofilename', default=['no'], help=argparse.SUPPRESS, required=True)
 parser.add_argument('-x', nargs=1, dest='xtcfilename', default=['no'], help=argparse.SUPPRESS, required=True)
-#parser.add_argument('-s', nargs=1, dest='tprfilename', default=['no'], help=argparse.SUPPRESS, required=True)
+parser.add_argument('-s', nargs=1, dest='tprfilename', default=['no'], help=argparse.SUPPRESS, required=True)
 parser.add_argument('-o', nargs=1, dest='output_folder', default=['no'], help=argparse.SUPPRESS, required=True)
 parser.add_argument('--version', action='version', version='%(prog)s v' + version_nb, help=argparse.SUPPRESS)
 parser.add_argument('-h','--help', action='help', help=argparse.SUPPRESS)
@@ -198,7 +198,7 @@ print "Folders OK."
 
 def load_MDA_universe():
 	global U
-	print "\nLoading trajectory..."
+	print "\nLoading MDA trajectory..."
 	U = Universe(args.grofilename, args.xtcfilename)
 	### might need some more globals here
 	test_prot = U.select_atoms("protein")
@@ -208,6 +208,13 @@ def load_MDA_universe():
 	else:
 		print "MDA Trajectory loaded successfully."
 
+def load_MDT_trajectory():
+	print "\n Loading MDT trajectory..."
+	traj_mdt = mdt.load(args.xtcfilename, top=args.grofilename)
+	traj_mdt_protein = traj_mdt.select("protein")
+	print "Simulation length (ps):"
+	print traj_mdt.time[-1]
+	print "MDT Trajectory loaded successfully."
 
 def calculate_BilayerPenetration():
 	OUTPUT_BP = open("(args.output_folder + "/bilayer_interactions/penetration/bilayer_penetration.dat", 'w')")
@@ -242,25 +249,33 @@ def calculate_LipidContacts():
 		np.savetxt(OUTPUT_contacts, (DAT), delimiter=" ", fmt="%s")
     OUTPUT_contacts.close()
 
+def calculate_RMSD():
+	OUTPUT_RMSD = open("(args.output_folder + "/protein_properties/RMSD/RMSD.dat", 'w')")
+	R = MDAnalysis.analysis.rms.RMSD(u, ref, select="backbone", filename="RMSD_test.dat")
+	R.run()
+	R.save(OUTPUT_RMSD)
+	print "RMSD calculation complete."
+
+def calculate_RMSF():
+	OUTPUT_RMSF = open("(args.output_folder + "/protein_properties/RMSD/RMSD.dat", 'w')")
+	u_rmsf = Universe(args.tprfilename, args.xtcfilename, in_memory=True)
+	rmsf_prot = u_rmsf.select_atoms("protein")
+	# create a new average and reference structure
+	rmsf_reference_coordinates = u_rmsf.trajectory.timeseries(asel=protein).mean(axis=1)
+	rmsf_reference = MDAnalysis.Merge(protein).load_new(rmsf_reference_coordinates[:, None, :], order="afc")
+	from MDAnalysis.analysis.align import AlignTraj
+	aligner = AlignTraj(u_rmsf, rmsf_reference, select="protein and name CA", in_memory=True).run()
+	from MDAnalysis.analysis.rms import RMSF
+	calphas = protein.select_atoms("name CA")
+	rmsfer = RMSF(calphas, verbose=True).run()
+	rmsfer.save(OUTPUT_RMSF)
+	print "RMSF calculation complete."
+
 # load files in MDTraj
 
+load_MDT_trajectory()
+
 print "Loading files (this may take a while)..."
-
-#traj_mdt = mdt.load(args.xtcfilename, top=args.grofilename)
-#print "Simulation length (ps):"
-#print traj_mdt.time[-1]
-#print "Done."
-
-
-# Select proteins and lipids
-#mdt_topology = traj_mdt.topology
-
-#protein_mdt = topology.select("protein")
-#CA_protein_mdt = topology.select("protein and name CA")
-#residue_list_mdt = list(enumerate(CA_protein_mdt,1))
-#lipids_set = ["POPC", "POPS", "PI4P", "PIP2"]
-
-#bilayer = topology.select
 
 # load files in MDAnalysis
 
@@ -272,12 +287,17 @@ print "Analysing bilayer interactions..."
 
 calculate_BilayerPenetration()
 
-
 print "Done."
 
 # Protein properties
-#print "Analysing protein properties..."
-#print "Done."
+
+print "Analysing protein properties..."
+
+calculate_RMSD()
+
+calculate_RMSF()
+
+print "Done."
 
 
 # PCA
