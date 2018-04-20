@@ -4,7 +4,7 @@
 # Usage: ./preprocess_AT.sh
 ###############################################################################
 
-source ~/.bashrc
+#source ~/.bashrc
 
 # Amend for number of replicates and directories below:
 
@@ -14,7 +14,9 @@ cd sim_$i/;
 
 # Concatendate .xtc files for analysis:
 
-gmx trjcat -f md.*.part*.xtc -o md.PIP5K1A_popc_pops_pi4p_full_$i.xtc -nice -18;
+gmx_avx trjcat -f md.*.part*.xtc -o md.PIP5K1A_popc_pops_pi4p_full_$i.xtc -nice -18;
+
+gmx_avx trjconv -f md.PIP5K1A_popc_pops_pi4p_full_$i.xtc -dt 100 -o md.full_filtered_$i.xtc -nice 18
 
 # Write a script that converts .xvg files to .dat files:
 
