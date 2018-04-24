@@ -169,8 +169,6 @@ else:
 	os.mkdir(args.output_folder + "/protein_properties/RMSF")
 	os.mkdir(args.output_folder + "/protein_properties/DSSP")
 	os.mkdir(args.output_folder + "/protein_properties/ramachandran")
-	# PCs
-	os.mkdir(args.output_folder + "/PCA")
 	# Lipid properties
 	os.mkdir(args.output_folder + "/lipid_properties")
 	os.mkdir(args.output_folder + "/lipid_properties/RDF")
@@ -201,8 +199,8 @@ def load_MDA_universe():
 	print "\nLoading MDA trajectory..."
 	U = Universe(args.grofilename, args.xtcfilename)
 	### might need some more globals here
-	test_prot = U.select_atoms("protein")
-	if test_prot.numberOfAtoms() == 0:
+	test_prot = U.select_atoms("protein")	
+	if test_prot.atoms.n_atoms == 0:
 		print "Error: no protein found in the system."
 		sys.exit(1)
 	else:
@@ -211,34 +209,36 @@ def load_MDA_universe():
 def load_MDT_trajectory():
 	print "\n Loading MDT trajectory..."
 	traj_mdt = mdt.load(args.xtcfilename, top=args.grofilename)
-	traj_mdt_protein = traj_mdt.select("protein")
+	traj_mdt_protein = traj_mdt.topology.select("protein")
 	print "Simulation length (ps):"
 	print traj_mdt.time[-1]
 	print "MDT Trajectory loaded successfully."
 
 def calculate_BilayerPenetration():
-	OUTPUT_BP = open("(args.output_folder + "/bilayer_interactions/penetration/bilayer_penetration.dat", 'w')")
+	filename_details = os.getcwd() + '/' + str(args.output_folder) + '/bilayer_interactions/penetration/bilayer_penetration.dat'
+	OUTPUT_BP = open(filename_details,'w')
 	CA_res = U.select_atoms("protein and name CA")
 	bilayer = U.select_atoms("resname POPC")    
 	for residue in CA_res:
-    	penetration_list = []
-    	for frame in u.trajectory:
-        	bilayer_z = bilayer.center_of_mass()[2]
-        	CA_res_z = residue.position[2]
-        	penetration = (CA_res_z - bilayer_z)
-        	penetration_list.append(penetration)
-    	np_penetration_list = np.asarray(penetration_list)
-    	resid = np.asarray(residue.resid)
-    	avg_penetration = np.mean(np_penetration_list)
-    	std_penetration = np.std(np_penetration_list)
-    	DAT = np.column_stack((resid, avg_penetration, std_penetration))
-    	np.savetxt(OUTPUT_BP, (DAT), delimiter="   ", fmt="%s")
-    OUTPUT_BP.close()
+    		penetration_list = []
+    		for frame in U.trajectory:
+        		bilayer_z = bilayer.center_of_mass()[2]
+        		CA_res_z = residue.position[2]
+        		penetration = (CA_res_z - bilayer_z)
+        		penetration_list.append(penetration)
+    		np_penetration_list = np.asarray(penetration_list)
+    		resid = np.asarray(residue.resid)
+    		avg_penetration = np.mean(np_penetration_list)
+    		std_penetration = np.std(np_penetration_list)
+    		DAT = np.column_stack((resid, avg_penetration, std_penetration))
+    		np.savetxt(OUTPUT_BP, (DAT), delimiter="   ", fmt="%s")
+    	OUTPUT_BP.close()
 
 def calculate_LipidContacts():
-	OUTPUT_contacts = open("(args.output_folder + "/bilayer_interactions/contacts/contacts_per_frame.dat", 'w')")
+	filename_details = os.getcwd() + '/' + str(args.output_folder) + '/bilayer_interactions/contacts/contacts_per_frame.dat'
+	OUTPUT_contacts = open(filename_details, 'w')
 	for residue in CA_res:
-    	lipid_list = []
+    		lipid_list = []
 		resi = residue.resid
 		for frame in u.trajectory:
 			lipids = u.select_atoms("resname PI4P and around 4 resid %i"%(resi))
@@ -247,18 +247,20 @@ def calculate_LipidContacts():
 		np_lipid_list = np.asarray(lipid_list)
 		DAT = np.column_stack(np_lipid_list)
 		np.savetxt(OUTPUT_contacts, (DAT), delimiter=" ", fmt="%s")
-    OUTPUT_contacts.close()
+    	OUTPUT_contacts.close()
 
 def calculate_RMSD():
-	OUTPUT_RMSD = open("(args.output_folder + "/protein_properties/RMSD/RMSD.dat", 'w')")
-	R = MDAnalysis.analysis.rms.RMSD(u, ref, select="backbone", filename="RMSD_test.dat")
+	filename_details = os.getcwd() + '/' + str(args.output_folder) + '/protein_properties/RMSD/RMSD.dat'
+	OUTPUT_RMSD = open(filename_details, 'w')
+	R = MDAnalysis.analysis.rms.RMSD(U, ref, select="backbone", filename="RMSD_test.dat")
 	R.run()
 	R.save(OUTPUT_RMSD)
 	print "RMSD calculation complete."
 
 def calculate_RMSF():
-	OUTPUT_RMSF = open("(args.output_folder + "/protein_properties/RMSD/RMSD.dat", 'w')")
-	u_rmsf = Universe(args.tprfilename, args.xtcfilename, in_memory=True)
+	filename_details = os.getcwd() + '/' + str(args.output_folder) + '/protein_properties/RMSF/RMSF/dat'
+	OUTPUT_RMSF = open(filename_details, 'w')
+	u_rmsf = U(args.tprfilename, args.xtcfilename, in_memory=True)
 	rmsf_prot = u_rmsf.select_atoms("protein")
 	# create a new average and reference structure
 	rmsf_reference_coordinates = u_rmsf.trajectory.timeseries(asel=protein).mean(axis=1)
@@ -271,6 +273,21 @@ def calculate_RMSF():
 	rmsfer.save(OUTPUT_RMSF)
 	print "RMSF calculation complete."
 
+def calculate_DSSP():
+	print "DSSP function not complete"
+
+def calculate_RDF():
+	filename_details = os.getcwd() + '/' + str(args.output_folder) + '/lipid_properties/RDF/RDF.dat'
+	OUTPUT_RDF = open(filename_details, 'w')
+	u_rdf = Universe(args.tprfilename, args.xtcfilename, in_memory=True)
+	rdf_prot = u_rdf.select_atoms("protein")
+	rdf_lipids = u.rdf.select_atoms("resname PI4P")
+	rdf = InderRDF(rdf_prot,rdf_lipids)
+	rdf.run()
+	
+
+def calculate_densmap():
+	print "densmap function not complete"
 # load files in MDTraj
 
 load_MDT_trajectory()
@@ -297,11 +314,15 @@ calculate_RMSD()
 
 calculate_RMSF()
 
+calculate_DSSP()
+
 print "Done."
 
+print "Analysising lipid protperties..."
 
-# PCA
-#print "Analysing principal components..."
-#print "Done."
+#calculate_RDF()
+
+calculate_densmap()
+
 print "========================================"
 print "Analysis complete! Check output folder for results."

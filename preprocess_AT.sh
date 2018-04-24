@@ -4,7 +4,7 @@
 # Usage: ./preprocess_AT.sh
 ###############################################################################
 
-#source ~/.bashrc
+source ~/.bashrc
 
 # Amend for number of replicates and directories below:
 
