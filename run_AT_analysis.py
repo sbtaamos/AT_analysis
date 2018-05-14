@@ -291,7 +291,12 @@ def calculate_RMSF():
 	print "RMSF calculation complete."
 
 def calculate_DSSP():
-	print "DSSP function not complete"
+	filename_details = os.getcwd() + '/' + str(args.output_folder) + '/protein_properties/DSSP/DSSP.dat'
+	OUTPUT_DSSP = open(filename_details, 'w')
+	dssp = mdt.compute_dssp(traj_mdt.atom_slice(atom_indices=traj.topology.select('protein')), simplified=True)
+	dssp_over_time = dssp.T
+	np.savetxt(OUTPUT_DSSP, (dssp_over_time), delimiter=" ")
+	print "DSSP calculation complete"
 
 def calculate_RDF():
 	filename_details = os.getcwd() + '/' + str(args.output_folder) + '/lipid_properties/RDF/RDF.dat'
@@ -330,7 +335,7 @@ print "Analysing bilayer interactions..."
 
 #calculate_BilayerPenetration()
 
-calculate_LipidContacts()
+#calculate_LipidContacts()
 
 print "Done."
 
@@ -340,7 +345,7 @@ print "Analysing protein properties..."
 
 #calculate_RMSD()
 
-calculate_RMSF()
+#calculate_RMSF()
 
 calculate_DSSP()
 
