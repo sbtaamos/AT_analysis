@@ -33,7 +33,8 @@ Option	      Default  	Description
 
 -f			: structure file [.gro] (required)
 -x			: trajectory file [.xtc] (required)
--o			: name of output folder
+-s			: topology file [.tpr] (required)
+-o			: name of output folder (required)
 
 Other options
 -----------------------------------------------------
@@ -124,6 +125,7 @@ try:
 	from MDAnalysis import *
 	import MDAnalysis.analysis
 	import MDAnalysis.analysis.leaflet
+	import MDAnalysis.analysis.rms
 	import MDAnalysis.analysis.distances
 	#set MDAnalysis to use periodic boundary conditions
 	MDAnalysis.core.flags['use_periodic_selections'] = True
@@ -139,11 +141,11 @@ print "Modules OK."
 
 print "Checking files..."
 if not os.path.isfile(args.grofilename):
-	print "Error: file " + str(args.grofilename) + "not found."
+	print "Error: file " + str(args.grofilename) + " not found."
 	sys.exit(1)
 
 if not os.path.isfile(args.xtcfilename):
-	print "Error: file " + str(args.xtcfilename) + "not found."
+	print "Error: file " + str(args.xtcfilename) + " not found."
 	sys.exit(1)
 print "Files OK."
 #=========================================================================================
@@ -153,8 +155,8 @@ print "Files OK."
 # create folders
 print "Creating Folders..."
 if os.path.isdir(args.output_folder):
-	print "Error: folder " + str(args.output_folder) + "already exists. Choose a different output name using -o."
-
+	print "Error: folder " + str(args.output_folder) + " already exists. Choose a different output name using -o."
+	sys.exit(1)
 else:
 
 	os.mkdir(args.output_folder)
@@ -215,8 +217,12 @@ def load_MDT_trajectory():
 	print "MDT Trajectory loaded successfully."
 
 def calculate_BilayerPenetration():
-	filename_details = os.getcwd() + '/' + str(args.output_folder) + '/bilayer_interactions/penetration/bilayer_penetration.dat'
-	OUTPUT_BP = open(filename_details,'w')
+	# file for averaged data
+	filename_details_1 = os.getcwd() + '/' + str(args.output_folder) + '/bilayer_interactions/penetration/bilayer_penetration.dat'
+	OUTPUT_BP = open(filename_details_1,'w')
+	# file for time-resolved data
+	filename_details_2 = os.getcwd() + '/' + str(args.output_folder) + '/bilayer_interactions/penetration/bilayer_penetration_over_time.dat'
+	OUTPUT_BP_TIME = open(filename_details_2,'w')
 	CA_res = U.select_atoms("protein and name CA")
 	bilayer = U.select_atoms("resname POPC")    
 	for residue in CA_res:
@@ -232,45 +238,56 @@ def calculate_BilayerPenetration():
     		std_penetration = np.std(np_penetration_list)
     		DAT = np.column_stack((resid, avg_penetration, std_penetration))
     		np.savetxt(OUTPUT_BP, (DAT), delimiter="   ", fmt="%s")
+    		DAT = np_penetration_list
+    		np.savetxt(OUTPUT_BP_TIME, (DAT), delimiter=" ", fmt="%s")
     	OUTPUT_BP.close()
+    	OUTPUT_BP_TIME.close()
 
 def calculate_LipidContacts():
-	filename_details = os.getcwd() + '/' + str(args.output_folder) + '/bilayer_interactions/contacts/contacts_per_frame.dat'
-	OUTPUT_contacts = open(filename_details, 'w')
+	filename_details_1 = os.getcwd() + '/' + str(args.output_folder) + '/bilayer_interactions/contacts/contacts_full.dat'
+	OUTPUT_contacts = open(filename_details_1, 'w')
+	filename_details_2 = os.getcwd() + '/' + str(args.output_folder) + '/bilayer_interactions/contacts/contacts_per_frame.dat'
+	OUTPUT_contacts_TIME = open(filename_details_2, 'w')
+	CA_res = U.select_atoms("protein and name CA")
 	for residue in CA_res:
-    		lipid_list = []
-		resi = residue.resid
-		for frame in u.trajectory:
-			lipids = u.select_atoms("resname PI4P and around 4 resid %i"%(resi))
-			lipidNumber = lipids.n_residues
-			lipid_list.append(lipidNumber)
-		np_lipid_list = np.asarray(lipid_list)
-		DAT = np.column_stack(np_lipid_list)
-		np.savetxt(OUTPUT_contacts, (DAT), delimiter=" ", fmt="%s")
-    	OUTPUT_contacts.close()
+			lipid_list = []
+			resi = residue.resid
+			for frame in U.trajectory:
+				lipids = U.select_atoms("resname PI4P and around 4 resid %i"%(resi))
+				lipidNumber = lipids.n_residues
+				lipid_list.append(lipidNumber)
+			np_lipid_list = np.asarray(lipid_list)
+			resid = np.asarray(residue.resid)
+			SUM = np.sum(lipid_list)
+			DAT1 = np.column_stack((resid, SUM))
+			np.savetxt(OUTPUT_contacts, (DAT1), delimiter=" ", fmt="%s")
+			DAT2 = np.column_stack(np_lipid_list)
+			np.savetxt(OUTPUT_contacts_TIME, (DAT2), delimiter=" ", fmt="%s")
+	OUTPUT_contacts.close()
+	OUTPUT_contacts_TIME.close()
+
 
 def calculate_RMSD():
 	filename_details = os.getcwd() + '/' + str(args.output_folder) + '/protein_properties/RMSD/RMSD.dat'
 	OUTPUT_RMSD = open(filename_details, 'w')
+	ref = U.trajectory.rewind()
 	R = MDAnalysis.analysis.rms.RMSD(U, ref, select="backbone", filename="RMSD_test.dat")
 	R.run()
 	R.save(OUTPUT_RMSD)
 	print "RMSD calculation complete."
 
 def calculate_RMSF():
-	filename_details = os.getcwd() + '/' + str(args.output_folder) + '/protein_properties/RMSF/RMSF/dat'
+	filename_details = os.getcwd() + '/' + str(args.output_folder) + '/protein_properties/RMSF/RMSF.dat'
 	OUTPUT_RMSF = open(filename_details, 'w')
-	u_rmsf = U(args.tprfilename, args.xtcfilename, in_memory=True)
-	rmsf_prot = u_rmsf.select_atoms("protein")
-	# create a new average and reference structure
-	rmsf_reference_coordinates = u_rmsf.trajectory.timeseries(asel=protein).mean(axis=1)
-	rmsf_reference = MDAnalysis.Merge(protein).load_new(rmsf_reference_coordinates[:, None, :], order="afc")
-	from MDAnalysis.analysis.align import AlignTraj
-	aligner = AlignTraj(u_rmsf, rmsf_reference, select="protein and name CA", in_memory=True).run()
-	from MDAnalysis.analysis.rms import RMSF
-	calphas = protein.select_atoms("name CA")
-	rmsfer = RMSF(calphas, verbose=True).run()
-	rmsfer.save(OUTPUT_RMSF)
+	u_rmsf = U.select_atoms("protein")
+	protein = U.select_atoms("protein")
+	R = MDAnalysis.analysis.rms.RMSF(u_rmsf, verbose=True)
+	R.run()
+	DAT = R.rmsf
+	np.savetxt(OUTPUT_RMSF, (DAT), fmt="%s")
+#	protein.bfactors = R.rmsf
+#	U.trajectory[-1]
+#	protein.write(os.getcwd() + '/' + str(args.output_folder) + '/protein_properties/RMSF/' + "protein_with_bfactors.pdb")
 	print "RMSF calculation complete."
 
 def calculate_DSSP():
@@ -284,10 +301,19 @@ def calculate_RDF():
 	rdf_lipids = u.rdf.select_atoms("resname PI4P")
 	rdf = InderRDF(rdf_prot,rdf_lipids)
 	rdf.run()
-	
+	rdf.save(OUTPUT_RDF)
+	print "RDF calculation complete."
 
 def calculate_densmap():
 	print "densmap function not complete"
+
+###############################################################################
+
+### END OF FUNCTIONS
+
+###############################################################################
+
+
 # load files in MDTraj
 
 load_MDT_trajectory()
@@ -302,7 +328,9 @@ load_MDA_universe()
 
 print "Analysing bilayer interactions..."
 
-calculate_BilayerPenetration()
+#calculate_BilayerPenetration()
+
+calculate_LipidContacts()
 
 print "Done."
 
@@ -310,7 +338,7 @@ print "Done."
 
 print "Analysing protein properties..."
 
-calculate_RMSD()
+#calculate_RMSD()
 
 calculate_RMSF()
 
@@ -318,7 +346,7 @@ calculate_DSSP()
 
 print "Done."
 
-print "Analysising lipid protperties..."
+print "Analysing lipid properties..."
 
 #calculate_RDF()
 
