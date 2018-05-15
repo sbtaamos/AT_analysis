@@ -113,6 +113,15 @@ try:
 except:
 	print "Error: you need to install the pylab module."
 	sys.exit(1)
+try:
+	import pandas as pd
+except:
+	print "Error: you need to install the pandas module."
+
+try:
+	import seaborn as sns
+except:
+	print "Error: you need to install the seaborn module."	
 #MDTraj module
 try:
 	import mdtraj as mdt
@@ -216,6 +225,12 @@ def load_MDT_trajectory():
 	print traj_mdt.time[-1]
 	print "MDT Trajectory loaded successfully."
 
+###############################################################################
+#
+# Analysis functions
+# 
+###############################################################################
+
 def calculate_BilayerPenetration():
 	# file for averaged data
 	filename_details_1 = os.getcwd() + '/' + str(args.output_folder) + '/bilayer_interactions/penetration/bilayer_penetration.dat'
@@ -236,12 +251,35 @@ def calculate_BilayerPenetration():
     		resid = np.asarray(residue.resid)
     		avg_penetration = np.mean(np_penetration_list)
     		std_penetration = np.std(np_penetration_list)
-    		DAT = np.column_stack((resid, avg_penetration, std_penetration))
-    		np.savetxt(OUTPUT_BP, (DAT), delimiter="   ", fmt="%s")
-    		DAT = np_penetration_list
-    		np.savetxt(OUTPUT_BP_TIME, (DAT), delimiter=" ", fmt="%s")
+    		DAT1 = np.column_stack((resid, avg_penetration, std_penetration))
+    		np.savetxt(OUTPUT_BP, (DAT1), delimiter="   ", fmt="%s")
+    		DAT2 = np_penetration_list
+    		np.savetxt(OUTPUT_BP_TIME, (DAT2), delimiter=" ", fmt="%s")
     	OUTPUT_BP.close()
     	OUTPUT_BP_TIME.close()
+    # plot the data
+    # full (DAT1)
+
+
+    # create filename
+    #----------------
+    filename_svg = os.getcwd() + '/' + str(args.output_folder) + '/bilayer_interactions/penetration/bilayer_penetration.svg'
+
+    # create figure
+    #--------------
+
+    fig, ax = plt.subplots()
+    fig.suptitle("Bilayer Penetration")
+
+
+    # plot the data
+    #--------------
+
+    data = np.genfromtxt(filename_details_1)
+    df = pd.DataFrame(data, columns=('residue','avg','std'))
+	sns.barplot(x="residue", y="avg", error="std", data=df)
+    fig.save(filename_svg)
+
 
 def calculate_LipidContacts():
 	filename_details_1 = os.getcwd() + '/' + str(args.output_folder) + '/bilayer_interactions/contacts/contacts_full.dat'
@@ -275,6 +313,7 @@ def calculate_RMSD():
 	R.run()
 	R.save(OUTPUT_RMSD)
 	print "RMSD calculation complete."
+	OUTPUT_RMSD.close()
 
 def calculate_RMSF():
 	filename_details = os.getcwd() + '/' + str(args.output_folder) + '/protein_properties/RMSF/RMSF.dat'
@@ -285,6 +324,7 @@ def calculate_RMSF():
 	R.run()
 	DAT = R.rmsf
 	np.savetxt(OUTPUT_RMSF, (DAT), fmt="%s")
+	OUTPUT_RMSF.close()
 #	protein.bfactors = R.rmsf
 #	U.trajectory[-1]
 #	protein.write(os.getcwd() + '/' + str(args.output_folder) + '/protein_properties/RMSF/' + "protein_with_bfactors.pdb")
@@ -296,6 +336,7 @@ def calculate_DSSP():
 	dssp = mdt.compute_dssp(traj_mdt.atom_slice(atom_indices=traj.topology.select('protein')), simplified=True)
 	dssp_over_time = dssp.T
 	np.savetxt(OUTPUT_DSSP, (dssp_over_time), delimiter=" ")
+	OUTPUT_DSSP.close()
 	print "DSSP calculation complete"
 
 def calculate_RDF():
@@ -307,10 +348,9 @@ def calculate_RDF():
 	rdf = InderRDF(rdf_prot,rdf_lipids)
 	rdf.run()
 	rdf.save(OUTPUT_RDF)
+	OUTPUT_RDF.close()
 	print "RDF calculation complete."
 
-def calculate_densmap():
-	print "densmap function not complete"
 
 ###############################################################################
 
@@ -333,9 +373,9 @@ load_MDA_universe()
 
 print "Analysing bilayer interactions..."
 
-#calculate_BilayerPenetration()
+calculate_BilayerPenetration()
 
-#calculate_LipidContacts()
+calculate_LipidContacts()
 
 print "Done."
 
@@ -343,9 +383,9 @@ print "Done."
 
 print "Analysing protein properties..."
 
-#calculate_RMSD()
+calculate_RMSD()
 
-#calculate_RMSF()
+calculate_RMSF()
 
 calculate_DSSP()
 
@@ -353,9 +393,7 @@ print "Done."
 
 print "Analysing lipid properties..."
 
-#calculate_RDF()
-
-calculate_densmap()
+calculate_RDF()
 
 print "========================================"
 print "Analysis complete! Check output folder for results."
